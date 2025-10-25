@@ -130,7 +130,8 @@ export class TaskExecutor {
       throw new Error('TASK_SUSPENDED');
     };
 
-    const func = new Function('__callHostTool__', 'resumePayload', code);
+    const AsyncFunction = (async function() {}).constructor;
+    const func = new AsyncFunction('__callHostTool__', 'resumePayload', code);
     return await func(__callHostTool__, resumePayload);
   }
 }
