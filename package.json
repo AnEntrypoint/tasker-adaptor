@@ -1,0 +1,30 @@
+{
+  "name": "tasker-adaptor",
+  "version": "1.0.0",
+  "description": "Base storage and service adaptor interfaces for tasker-sequential",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./storage": "./src/interfaces/storage-adapter.js",
+    "./service": "./src/core/service-client.js",
+    "./executor": "./src/core/task-executor.js",
+    "./processor": "./src/core/stack-processor.js"
+  },
+  "scripts": {
+    "test": "node tests/test-base.js"
+  },
+  "keywords": [
+    "tasker",
+    "sequential",
+    "adapter",
+    "storage",
+    "base",
+    "interface"
+  ],
+  "author": "",
+  "license": "MIT",
+  "peerDependencies": {
+    "sequential-flow": "^1.0.0"
+  }
+}
