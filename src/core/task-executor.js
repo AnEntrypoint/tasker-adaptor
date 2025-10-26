@@ -67,24 +67,31 @@ export class TaskExecutor {
    * @param {Object} taskRun - Task run record
    * @param {Object} resumePayload - Results from child call
    * @param {string} taskCode - Task code to resume
+   * @param {number} parentStackRunId - Parent stack run ID for new service calls
    * @returns {Promise<Object>} Execution result
    */
-  async resume(taskRun, resumePayload, taskCode) {
+  async resume(taskRun, resumePayload, taskCode, parentStackRunId) {
     try {
+      console.log(`[TaskExecutor] Resuming task ${taskRun.id}`);
+
       const context = {
         taskRun,
         storage: this.storage,
         serviceClient: this.serviceClient,
         suspended: false,
         suspensionData: null,
-        resumePayload
+        resumePayload,
+        parentStackRunId
       };
 
       let result;
       try {
+        console.log(`[TaskExecutor] Executing code with resumePayload`);
         result = await this._executeCode(taskCode, context, resumePayload);
+        console.log(`[TaskExecutor] Code execution completed`);
       } catch (error) {
         if (error.message === 'TASK_SUSPENDED') {
+          console.log(`[TaskExecutor] Task suspended again`);
           return {
             suspended: true,
             suspensionData: context.suspensionData
@@ -93,13 +100,16 @@ export class TaskExecutor {
         throw error;
       }
 
+      console.log(`[TaskExecutor] Updating task as completed`);
       await this.storage.updateTaskRun(taskRun.id, {
         status: 'completed',
         result: JSON.stringify(result)
       });
+      console.log(`[TaskExecutor] Task update completed`);
 
       return { success: true, result };
     } catch (error) {
+      console.error(`[TaskExecutor] Error resuming task:`, error.message);
       await this.storage.updateTaskRun(taskRun.id, {
         status: 'failed',
         error: JSON.stringify({ message: error.message })
@@ -113,7 +123,7 @@ export class TaskExecutor {
     const __callHostTool__ = async (serviceName, methodPath, args) => {
       const childStackRun = await context.storage.createStackRun({
         task_run_id: context.taskRun.id,
-        parent_stack_run_id: context.stackRun?.id,
+        parent_stack_run_id: context.stackRun?.id || context.parentStackRunId,
         operation: `${serviceName}.${methodPath}`,
         status: 'pending',
         input: { serviceName, methodPath, args }
