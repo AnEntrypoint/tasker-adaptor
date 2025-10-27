@@ -7,7 +7,7 @@ export class ServiceClient {
   constructor(config = {}) {
     this.config = {
       type: config.type || 'http',
-      baseUrl: config.baseUrl || 'http://localhost:54321',
+      baseUrl: config.baseUrl || (process.env.SERVICE_BASE_URL || 'http://localhost:3000'),
       authToken: config.authToken || '',
       ...config
     };
@@ -42,8 +42,11 @@ export class ServiceClient {
     const actualServiceName = serviceMap[serviceName] || serviceName;
     const url = `${this.config.baseUrl}/functions/v1/${actualServiceName}`;
 
+    // Convert method path to dot-separated string if it's an array
+    const methodString = Array.isArray(method) ? method.join('.') : method;
+
     const requestBody = {
-      chain: [{ property: method, args: params }]
+      chain: [{ property: methodString, args: params }]
     };
 
     const response = await fetch(url, {
