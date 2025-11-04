@@ -1,15 +1,25 @@
-import { SQLiteAdapter } from 'tasker-adaptor-sqlite';
-import { SupabaseAdapter } from 'tasker-adaptor-supabase';
+import { FolderAdapter } from './adapters/folder-adapter.js';
 
 const adapterRegistry = new Map();
 
-function registerBuiltInAdapters() {
-  registerAdapter('sqlite', (config) => new SQLiteAdapter(config.dbPath || './tasks.db'));
-  registerAdapter('supabase', (config) => new SupabaseAdapter(
-    config.url || process.env.SUPABASE_URL || '',
-    config.serviceKey || process.env.SUPABASE_SERVICE_KEY || '',
-    config.anonKey || process.env.SUPABASE_ANON_KEY || ''
-  ));
+async function registerBuiltInAdapters() {
+  registerAdapter('folder', (config) => new FolderAdapter(config.basePath || './tasks'));
+
+  try {
+    const { SQLiteAdapter } = await import('tasker-adaptor-sqlite');
+    registerAdapter('sqlite', (config) => new SQLiteAdapter(config.dbPath || './tasks.db'));
+  } catch (e) {
+  }
+
+  try {
+    const { SupabaseAdapter } = await import('tasker-adaptor-supabase');
+    registerAdapter('supabase', (config) => new SupabaseAdapter(
+      config.url || process.env.SUPABASE_URL || '',
+      config.serviceKey || process.env.SUPABASE_SERVICE_KEY || '',
+      config.anonKey || process.env.SUPABASE_ANON_KEY || ''
+    ));
+  } catch (e) {
+  }
 }
 
 export function registerAdapter(name, factory) {
@@ -25,7 +35,7 @@ export function getRegisteredAdapters() {
 
 export async function createAdapter(backend, config = {}) {
   if (adapterRegistry.size === 0) {
-    registerBuiltInAdapters();
+    await registerBuiltInAdapters();
   }
 
   const factory = adapterRegistry.get(backend);
