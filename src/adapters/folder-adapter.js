@@ -2,6 +2,8 @@ import fs from 'fs';
 import path from 'path';
 import { randomUUID } from 'crypto';
 import { StorageAdapter } from '../interfaces/storage-adapter.js';
+import { CRUDPatterns, Serializer } from 'tasker-storage-utils';
+import { nowISO } from 'tasker-utils/timestamps';
 
 export class FolderAdapter extends StorageAdapter {
   constructor(basePath = './tasks') {
@@ -10,6 +12,8 @@ export class FolderAdapter extends StorageAdapter {
     this.taskRunsCache = new Map();
     this.stackRunsCache = new Map();
     this.keystoreCache = new Map();
+    this.crud = new CRUDPatterns();
+    this.serializer = new Serializer();
   }
 
   async init() {
@@ -51,93 +55,83 @@ export class FolderAdapter extends StorageAdapter {
 
   async createTaskRun(taskRun) {
     const id = taskRun.id || randomUUID();
-    const record = {
-      id,
-      taskName: taskRun.taskName,
-      status: taskRun.status || 'pending',
-      input: taskRun.input || {},
-      output: taskRun.output || null,
-      error: taskRun.error || null,
-      startedAt: taskRun.startedAt || new Date().toISOString(),
-      completedAt: taskRun.completedAt || null
-    };
-    this.taskRunsCache.set(id, record);
+    const record = this.crud.buildTaskRunCreate({ id, ...taskRun });
+    const normalized = this.crud.normalizeTaskRunRecord(record);
+    this.taskRunsCache.set(id, normalized);
     fs.writeFileSync(
       path.join(this.basePath, `task-run-${id}.json`),
-      JSON.stringify(record, null, 2)
+      JSON.stringify(normalized, null, 2)
     );
-    return record;
+    return normalized;
   }
 
   async getTaskRun(id) {
-    return this.taskRunsCache.get(id) || null;
+    const cached = this.taskRunsCache.get(id);
+    return cached ? this.crud.normalizeTaskRunRecord(cached) : null;
   }
 
   async updateTaskRun(id, updates) {
     const record = this.taskRunsCache.get(id);
     if (!record) return null;
-    Object.assign(record, updates);
+    const prepared = this.crud.buildTaskRunUpdate(updates);
+    const merged = this.crud.mergeUpdates(record, prepared);
+    const normalized = this.crud.normalizeTaskRunRecord(merged);
+    this.taskRunsCache.set(id, normalized);
     fs.writeFileSync(
       path.join(this.basePath, `task-run-${id}.json`),
-      JSON.stringify(record, null, 2)
+      JSON.stringify(normalized, null, 2)
     );
-    return record;
+    return normalized;
   }
 
   async queryTaskRuns(filter) {
-    return Array.from(this.taskRunsCache.values()).filter(run => {
-      if (filter.taskName && run.taskName !== filter.taskName) return false;
-      if (filter.status && run.status !== filter.status) return false;
-      return true;
-    });
+    const records = Array.from(this.taskRunsCache.values());
+    const query = this.crud.buildTaskRunQuery(filter);
+    const filtered = this.crud.filterRecords(records, query);
+    return filtered.map(r => this.crud.normalizeTaskRunRecord(r));
   }
 
   async createStackRun(stackRun) {
     const id = stackRun.id || randomUUID();
-    const record = {
-      id,
-      task_run_id: stackRun.task_run_id,
-      parent_stack_run_id: stackRun.parent_stack_run_id || null,
-      operation: stackRun.operation || null,
-      status: stackRun.status || 'pending',
-      input: stackRun.input || {},
-      output: stackRun.output || null,
-      error: stackRun.error || null,
-      createdAt: stackRun.createdAt || new Date().toISOString()
-    };
-    this.stackRunsCache.set(id, record);
+    const record = this.crud.buildStackRunCreate({ id, ...stackRun });
+    const normalized = this.crud.normalizeStackRunRecord(record);
+    this.stackRunsCache.set(id, normalized);
     fs.writeFileSync(
       path.join(this.basePath, `stack-run-${id}.json`),
-      JSON.stringify(record, null, 2)
+      JSON.stringify(normalized, null, 2)
     );
-    return record;
+    return normalized;
   }
 
   async getStackRun(id) {
-    return this.stackRunsCache.get(id) || null;
+    const cached = this.stackRunsCache.get(id);
+    return cached ? this.crud.normalizeStackRunRecord(cached) : null;
   }
 
   async updateStackRun(id, updates) {
     const record = this.stackRunsCache.get(id);
     if (!record) return null;
-    Object.assign(record, updates);
+    const prepared = this.crud.buildStackRunUpdate(updates);
+    const merged = this.crud.mergeUpdates(record, prepared);
+    const normalized = this.crud.normalizeStackRunRecord(merged);
+    this.stackRunsCache.set(id, normalized);
     fs.writeFileSync(
       path.join(this.basePath, `stack-run-${id}.json`),
-      JSON.stringify(record, null, 2)
+      JSON.stringify(normalized, null, 2)
     );
-    return record;
+    return normalized;
   }
 
   async queryStackRuns(filter) {
-    return Array.from(this.stackRunsCache.values()).filter(run => {
-      if (filter.task_run_id && run.task_run_id !== filter.task_run_id) return false;
-      if (filter.status && run.status !== filter.status) return false;
-      return true;
-    });
+    const records = Array.from(this.stackRunsCache.values());
+    const query = this.crud.buildStackRunQuery(filter);
+    const filtered = this.crud.filterRecords(records, query);
+    return filtered.map(r => this.crud.normalizeStackRunRecord(r));
   }
 
   async getPendingStackRuns() {
-    return Array.from(this.stackRunsCache.values()).filter(run => run.status === 'pending');
+    const records = Array.from(this.stackRunsCache.values());
+    return records.filter(run => run.status === 'pending').map(r => this.crud.normalizeStackRunRecord(r));
   }
 
   async storeTaskFunction(taskFunction) {
@@ -148,7 +142,7 @@ export class FolderAdapter extends StorageAdapter {
     }
     fs.writeFileSync(
       path.join(funcDir, 'metadata.json'),
-      JSON.stringify({ id, name: taskFunction.name, createdAt: new Date().toISOString() }, null, 2)
+      JSON.stringify({ id, name: taskFunction.name, createdAt: nowISO() }, null, 2)
     );
     if (taskFunction.code) {
       fs.writeFileSync(path.join(funcDir, 'code.js'), taskFunction.code);
