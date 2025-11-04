@@ -24,6 +24,10 @@
   ],
   "author": "",
   "license": "MIT",
+  "dependencies": {
+    "tasker-storage-utils": "^1.0.0",
+    "tasker-utils": "^1.0.0"
+  },
   "peerDependencies": {
     "sequential-flow": "^1.0.0"
   }

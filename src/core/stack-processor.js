@@ -1,4 +1,5 @@
 import ServiceClient from './service-client.js';
+import logger from 'tasker-logging';
 
 /**
  * Stack processor for handling pending stack runs
@@ -33,7 +34,7 @@ export class StackProcessor {
         return;
       }
 
-      console.log(`[StackProcessor] Processing stack run ${stackRun.id}: ${stackRun.operation}`);
+      logger.info('Processing stack run', { stackRunId: stackRun.id, operation: stackRun.operation });
 
       await this.storage.updateStackRun(stackRun.id, {
         status: 'in_progress'
@@ -46,22 +47,22 @@ export class StackProcessor {
       let error = null;
 
       try {
-        console.log(`[StackProcessor] Calling service: ${serviceName}.${methodPath}`);
+        logger.info('Calling service', { serviceName, methodPath });
         result = await this.serviceClient.call(serviceName, methodPath, args);
-        console.log(`[StackProcessor] Service call completed`);
+        logger.info('Service call completed', { serviceName, methodPath });
       } catch (e) {
         error = e;
-        console.error(`[StackProcessor] Service call failed:`, e.message);
+        logger.error('Service call failed', e, { serviceName, methodPath });
       }
 
       if (error) {
-        console.log(`[StackProcessor] Marking stack run as failed`);
+        logger.info('Marking stack run as failed', { stackRunId: stackRun.id });
         await this.storage.updateStackRun(stackRun.id, {
           status: 'failed',
           error: JSON.stringify({ message: error.message, stack: error.stack })
         });
       } else {
-        console.log(`[StackProcessor] Marking stack run as completed`);
+        logger.info('Marking stack run as completed', { stackRunId: stackRun.id });
         await this.storage.updateStackRun(stackRun.id, {
           status: 'completed',
           result: JSON.stringify(result)
@@ -69,13 +70,13 @@ export class StackProcessor {
       }
 
       if (stackRun.parent_stack_run_id) {
-        console.log(`[StackProcessor] Stack run has parent, resuming parent task`);
+        logger.info('Stack run has parent, resuming parent task', { stackRunId: stackRun.id, parentStackRunId: stackRun.parent_stack_run_id });
         await this._resumeParentTask(stackRun, error);
       } else {
-        console.log(`[StackProcessor] Stack run has no parent`);
+        logger.info('Stack run has no parent', { stackRunId: stackRun.id });
       }
     } catch (error) {
-      console.error(`[StackProcessor] Error processing stack run:`, error.message);
+      logger.error('Error processing stack run', error, { stackRunId: stackRun.id });
       await this.storage.updateStackRun(stackRun.id, {
         status: 'failed',
         error: JSON.stringify({ message: error.message, stack: error.stack })
@@ -84,17 +85,17 @@ export class StackProcessor {
   }
 
   async _resumeParentTask(childStackRun, error) {
-    console.log(`[StackProcessor] _resumeParentTask called for child stack run ${childStackRun.id}`);
+    logger.info('_resumeParentTask called for child stack run', { childStackRunId: childStackRun.id });
 
     const parentStackRun = await this.storage.getStackRun(childStackRun.parent_stack_run_id);
     if (!parentStackRun) {
-      console.log(`[StackProcessor] Parent stack run not found`);
+      logger.info('Parent stack run not found', { parentStackRunId: childStackRun.parent_stack_run_id });
       return;
     }
 
     const taskRun = await this.storage.getTaskRun(childStackRun.task_run_id);
     if (!taskRun) {
-      console.log(`[StackProcessor] Task run not found`);
+      logger.info('Task run not found', { taskRunId: childStackRun.task_run_id });
       return;
     }
 
@@ -102,12 +103,12 @@ export class StackProcessor {
 
     if (error) {
       resumePayload = { error: { message: error.message } };
-      console.log(`[StackProcessor] Resuming with error: ${error.message}`);
+      logger.info('Resuming with error', { errorMessage: error.message });
     } else {
       // Re-fetch the stack run from database to get updated result field
       const freshChildStackRun = await this.storage.getStackRun(childStackRun.id);
       resumePayload = freshChildStackRun.result ? (typeof freshChildStackRun.result === 'string' ? JSON.parse(freshChildStackRun.result) : freshChildStackRun.result) : null;
-      console.log(`[StackProcessor] Resuming with result`);
+      logger.info('Resuming with result', { childStackRunId: childStackRun.id });
     }
 
     await this.storage.updateStackRun(parentStackRun.id, {
@@ -117,19 +118,19 @@ export class StackProcessor {
 
     const taskFunction = await this.storage.getTaskFunction(taskRun.task_identifier);
     if (!taskFunction) {
-      console.log(`[StackProcessor] Task function not found`);
+      logger.info('Task function not found', { taskIdentifier: taskRun.task_identifier });
       return;
     }
 
-    console.log(`[StackProcessor] Calling executor.resume for task ${taskRun.id}`);
+    logger.info('Calling executor.resume for task', { taskRunId: taskRun.id });
     const { TaskExecutor } = await import('./task-executor.js');
     const executor = new TaskExecutor(this.storage, this.serviceClient);
 
     try {
       await executor.resume(taskRun, resumePayload, taskFunction.code, parentStackRun.id);
-      console.log(`[StackProcessor] Task resumed successfully`);
+      logger.info('Task resumed successfully', { taskRunId: taskRun.id });
     } catch (e) {
-      console.error(`[StackProcessor] Error resuming task:`, e.message);
+      logger.error('Error resuming task', e, { taskRunId: taskRun.id });
       throw e;
     }
   }

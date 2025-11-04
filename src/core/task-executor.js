@@ -1,4 +1,5 @@
 import ServiceClient from './service-client.js';
+import logger from 'tasker-logging';
 
 /**
  * Task executor that runs task code with automatic suspend/resume
@@ -72,7 +73,7 @@ export class TaskExecutor {
    */
   async resume(taskRun, resumePayload, taskCode, parentStackRunId) {
     try {
-      console.log(`[TaskExecutor] Resuming task ${taskRun.id}`);
+      logger.info('Resuming task', { taskRunId: taskRun.id });
 
       const context = {
         taskRun,
@@ -86,12 +87,12 @@ export class TaskExecutor {
 
       let result;
       try {
-        console.log(`[TaskExecutor] Executing code with resumePayload`);
+        logger.info('Executing code with resumePayload', { taskRunId: taskRun.id });
         result = await this._executeCode(taskCode, context, resumePayload);
-        console.log(`[TaskExecutor] Code execution completed`);
+        logger.info('Code execution completed', { taskRunId: taskRun.id });
       } catch (error) {
         if (error.message === 'TASK_SUSPENDED') {
-          console.log(`[TaskExecutor] Task suspended again`);
+          logger.info('Task suspended again', { taskRunId: taskRun.id });
           return {
             suspended: true,
             suspensionData: context.suspensionData
@@ -100,16 +101,16 @@ export class TaskExecutor {
         throw error;
       }
 
-      console.log(`[TaskExecutor] Updating task as completed`);
+      logger.info('Updating task as completed', { taskRunId: taskRun.id });
       await this.storage.updateTaskRun(taskRun.id, {
         status: 'completed',
         result: JSON.stringify(result)
       });
-      console.log(`[TaskExecutor] Task update completed`);
+      logger.info('Task update completed', { taskRunId: taskRun.id });
 
       return { success: true, result };
     } catch (error) {
-      console.error(`[TaskExecutor] Error resuming task:`, error.message);
+      logger.error('Error resuming task', error, { taskRunId: taskRun.id });
       await this.storage.updateTaskRun(taskRun.id, {
         status: 'failed',
         error: JSON.stringify({ message: error.message })
