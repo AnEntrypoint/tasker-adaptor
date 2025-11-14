@@ -1,7 +1,7 @@
 {
-  "name": "tasker-adaptor",
+  "name": "sequential-adaptor",
   "version": "1.0.0",
-  "description": "Base storage and service adaptor interfaces for tasker-sequential",
+  "description": "Base storage and service adaptor interfaces for sequential-runner",
   "type": "module",
   "main": "src/index.js",
   "exports": {
@@ -15,7 +15,7 @@
     "test": "node tests/test-base.js"
   },
   "keywords": [
-    "tasker",
+    "sequential",
     "sequential",
     "adapter",
     "storage",
@@ -25,8 +25,8 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "tasker-storage-utils": "^1.0.0",
-    "tasker-utils": "^1.0.0"
+    "sequential-storage-utils": "^1.0.0",
+    "sequential-utils": "^1.0.0"
   },
   "peerDependencies": {
     "sequential-flow": "^1.0.0"
