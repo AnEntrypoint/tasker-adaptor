@@ -1,5 +1,5 @@
 import ServiceClient from './service-client.js';
-import logger from 'tasker-logging';
+import logger from 'sequential-logging';
 
 /**
  * Task executor that runs task code with automatic suspend/resume

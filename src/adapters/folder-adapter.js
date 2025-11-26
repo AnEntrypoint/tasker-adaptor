@@ -2,8 +2,8 @@ import fs from 'fs';
 import path from 'path';
 import { randomUUID } from 'crypto';
 import { StorageAdapter } from '../interfaces/storage-adapter.js';
-import { CRUDPatterns, Serializer } from 'tasker-storage-utils';
-import { nowISO } from 'tasker-utils/timestamps';
+import { CRUDPatterns, Serializer } from 'sequential-storage-utils';
+import { nowISO } from 'sequential-utils/timestamps';
 
 export class FolderAdapter extends StorageAdapter {
   constructor(basePath = './tasks') {

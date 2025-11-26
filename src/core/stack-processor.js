@@ -1,5 +1,5 @@
 import ServiceClient from './service-client.js';
-import logger from 'tasker-logging';
+import logger from 'sequential-logging';
 
 /**
  * Stack processor for handling pending stack runs
