@@ -1,77 +1,135 @@
-# Tasker Adaptor
+# Sequential Adaptor
 
-Base interfaces and core execution logic for task execution with pluggable storage backends.
+Plugin registry and storage adapters for sequential-ecosystem.
 
 ## Installation
 
 ```bash
-npm install tasker-adaptor
+npm install sequential-adaptor
+```
+
+## Plugin Registry
+
+Central registry for adapters, runners, services, commands, and loaders:
+
+```javascript
+import { register, create, list, has, loadPlugins } from 'sequential-adaptor';
+
+register('adapter', 'mydb', (config) => new MyDBAdapter(config));
+register('runner', 'custom', (config) => new CustomRunner(config));
+register('service', 'alias', () => 'endpoint-name');
+register('command', 'mycmd', () => myCommandDef);
+
+const adapter = await create('adapter', 'mydb', { uri: '...' });
+const runner = await create('runner', 'custom', {});
+
+await loadPlugins(['./my-plugin.js']);
+```
+
+## Storage Adapters
+
+```javascript
+import { createAdapter, registerAdapter, getRegisteredAdapters } from 'sequential-adaptor';
+
+const folder = await createAdapter('folder', { basePath: './tasks' });
+const sqlite = await createAdapter('sqlite', { dbPath: './tasks.db' });
+const supabase = await createAdapter('supabase', {
+  url: process.env.SUPABASE_URL,
+  serviceKey: process.env.SUPABASE_SERVICE_KEY
+});
+
+registerAdapter('mongodb', (config) => new MongoAdapter(config));
+```
+
+Built-in: `folder` (default), `sqlite`, `supabase`
+
+## Runners
+
+```javascript
+import { createRunner, registerRunner, getRegisteredRunners } from 'sequential-adaptor';
+
+const fetchRunner = await createRunner('fetch', {});
+const flowRunner = await createRunner('flow', {});
+const containerRunner = await createRunner('container', { stateDir: '.statekit' });
+
+registerRunner('custom', (config) => new CustomRunner(config));
+```
+
+Built-in: `fetch` (implicit xstate), `flow` (explicit xstate), `container` (StateKit)
+
+## Service Client
+
+```javascript
+import { ServiceClient } from 'sequential-adaptor';
+
+ServiceClient.registerService('database', 'wrappedsupabase');
+ServiceClient.registerService('openai', 'wrappedopenai');
+
+const client = new ServiceClient({
+  baseUrl: process.env.SERVICE_BASE_URL,
+  authToken: process.env.SERVICE_AUTH_TOKEN
+});
+
+const result = await client.call('database', 'getUsers', { limit: 10 });
+```
+
+## Storage Adapter Interface
+
+```javascript
+import { StorageAdapter } from 'sequential-adaptor';
+
+class MyAdapter extends StorageAdapter {
+  async init() {}
+  async createTaskRun(taskRun) {}
+  async getTaskRun(id) {}
+  async updateTaskRun(id, updates) {}
+  async queryTaskRuns(filter) {}
+  async createStackRun(stackRun) {}
+  async getStackRun(id) {}
+  async updateStackRun(id, updates) {}
+  async queryStackRuns(filter) {}
+  async getPendingStackRuns() {}
+  async storeTaskFunction(taskFunction) {}
+  async getTaskFunction(identifier) {}
+  async setKeystore(key, value) {}
+  async getKeystore(key) {}
+  async deleteKeystore(key) {}
+  async close() {}
+}
+```
+
+## Runner Interface
+
+```javascript
+import { Runner } from 'sequential-adaptor';
+
+class MyRunner extends Runner {
+  async init() {}
+  async run(code, input) {}
+  async resume(state, response) {}
+  async status() {}
+  async dispose() {}
+}
 ```
 
 ## Exports
 
-### Interfaces
-- `StorageAdapter` - Abstract base class for storage implementations
-
-### Core Classes
-- `ServiceClient` - Makes HTTP calls to wrapped services
-- `TaskExecutor` - Executes task code with automatic suspend/resume
-- `StackProcessor` - Processes pending service calls sequentially
-
-## Usage
-
 ```javascript
 import {
-  StorageAdapter,
+  register, get, list, has, create, loadPlugins, registries,
+  StorageAdapter, Runner,
   ServiceClient,
-  TaskExecutor,
-  StackProcessor
-} from 'tasker-adaptor';
+  TaskExecutor, StackProcessor,
+  createAdapter, registerAdapter, getRegisteredAdapters, withAdapter,
+  createRunner, registerRunner, getRegisteredRunners,
+  FolderAdapter
+} from 'sequential-adaptor';
 ```
 
-## Implementations
+## Backend Packages
 
-This package provides the base interfaces. Use one of the backend implementations:
-
-- **tasker-adaptor-supabase** - For Supabase backend
-- **tasker-adaptor-sqlite** - For SQLite backend
-
-## Storage Adapter Interface
-
-All storage backends must implement:
-
-```javascript
-class MyStorageAdapter extends StorageAdapter {
-  async init() { }
-  async createTaskRun(taskRun) { }
-  async getTaskRun(id) { }
-  async updateTaskRun(id, updates) { }
-  async queryTaskRuns(filter) { }
-  async createStackRun(stackRun) { }
-  async getStackRun(id) { }
-  async updateStackRun(id, updates) { }
-  async queryStackRuns(filter) { }
-  async getPendingStackRuns() { }
-  async storeTaskFunction(taskFunction) { }
-  async getTaskFunction(identifier) { }
-  async setKeystore(key, value) { }
-  async getKeystore(key) { }
-  async deleteKeystore(key) { }
-  async close() { }
-}
-```
-
-## Architecture
-
-**Base (tasker-adaptor):**
-- StorageAdapter interface
-- ServiceClient for HTTP calls
-- TaskExecutor for task execution
-- StackProcessor for service call processing
-
-**Implementations:**
-- tasker-adaptor-supabase - Supabase PostgreSQL backend
-- tasker-adaptor-sqlite - SQLite backend
+- `sequential-adaptor-sqlite` - SQLite storage
+- `sequential-adaptor-supabase` - Supabase PostgreSQL storage
 
 ## License
 

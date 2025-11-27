@@ -1,23 +1,36 @@
+import { register, get, list } from './registry.js';
+
 export class ServiceClient {
   constructor(config = {}) {
+    if (!config.baseUrl && !process.env.SERVICE_BASE_URL) {
+      throw new Error('ServiceClient requires baseUrl in config or SERVICE_BASE_URL env');
+    }
+    if (!config.authToken && !process.env.SERVICE_AUTH_TOKEN) {
+      throw new Error('ServiceClient requires authToken in config or SERVICE_AUTH_TOKEN env');
+    }
     this.config = {
-      baseUrl: config.baseUrl || (process.env.SERVICE_BASE_URL || 'http://localhost:3000'),
-      authToken: config.authToken || '',
+      baseUrl: config.baseUrl || process.env.SERVICE_BASE_URL,
+      authToken: config.authToken || process.env.SERVICE_AUTH_TOKEN,
       ...config
     };
   }
 
-  async call(serviceName, method, params) {
-    const serviceMap = {
-      'database': 'wrappedsupabase',
-      'keystore': 'wrappedkeystore',
-      'openai': 'wrappedopenai',
-      'websearch': 'wrappedwebsearch',
-      'gapi': 'wrappedgapi'
-    };
+  static registerService(alias, endpoint) {
+    register('service', alias, () => endpoint);
+  }
 
-    const actualServiceName = serviceMap[serviceName] || serviceName;
-    const url = `${this.config.baseUrl}/functions/v1/${actualServiceName}`;
+  static getServiceEndpoint(alias) {
+    const factory = get('service', alias);
+    return factory ? factory() : alias;
+  }
+
+  static listServices() {
+    return list('service');
+  }
+
+  async call(serviceName, method, params) {
+    const endpoint = ServiceClient.getServiceEndpoint(serviceName);
+    const url = `${this.config.baseUrl}/functions/v1/${endpoint}`;
     const methodString = Array.isArray(method) ? method.join('.') : method;
 
     const response = await fetch(url, {
