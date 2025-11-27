@@ -8,7 +8,7 @@ async function registerBuiltInRunners() {
 
   try {
     const { SequentialFetchVM } = await import('sequential-fetch');
-    register('runner', 'fetch', (config) => ({
+    register('runner', 'sequential-js', (config) => ({
       vm: new SequentialFetchVM(config),
       async init() { await this.vm.initialize?.(); },
       async run(code) { return this.vm.executeCode(code); },
@@ -33,7 +33,7 @@ async function registerBuiltInRunners() {
 
   try {
     const { StateKit } = await import('containerbuilder');
-    register('runner', 'container', (config) => ({
+    register('runner', 'sequential-os', (config) => ({
       kit: new StateKit(config),
       async init() {},
       async run(instruction) { return this.kit.run(instruction); },

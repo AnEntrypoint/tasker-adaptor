@@ -48,9 +48,9 @@ Built-in: `folder` (default), `sqlite`, `supabase`
 ```javascript
 import { createRunner, registerRunner, getRegisteredRunners } from 'sequential-adaptor';
 
-const fetchRunner = await createRunner('fetch', {});
+const jsRunner = await createRunner('sequential-js', {});
 const flowRunner = await createRunner('flow', {});
-const containerRunner = await createRunner('container', { stateDir: '.statekit' });
+const osRunner = await createRunner('sequential-os', { stateDir: '.statekit' });
 
 registerRunner('custom', (config) => new CustomRunner(config));
 ```
