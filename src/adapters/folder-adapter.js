@@ -2,13 +2,18 @@ import fs from 'fs';
 import path from 'path';
 import { randomUUID } from 'crypto';
 import { StorageAdapter } from '../interfaces/storage-adapter.js';
-import { CRUDPatterns, Serializer } from 'sequential-storage-utils';
-import { nowISO } from 'sequential-utils/timestamps';
+import { CRUDPatterns, Serializer } from '@sequential/sequential-storage-utils';
+import { nowISO } from '@sequential/sequential-utils/timestamps';
+import {
+  readJsonFile,
+  writeFileAtomicJson,
+  ensureDirectory
+} from '@sequential/file-operations';
 
 export class FolderAdapter extends StorageAdapter {
   constructor(basePath = './tasks') {
     super();
-    this.basePath = basePath;
+    this.basePath = path.resolve(basePath);
     this.taskRunsCache = new Map();
     this.stackRunsCache = new Map();
     this.keystoreCache = new Map();
@@ -16,41 +21,64 @@ export class FolderAdapter extends StorageAdapter {
     this.serializer = new Serializer();
   }
 
-  async init() {
-    if (!fs.existsSync(this.basePath)) {
-      fs.mkdirSync(this.basePath, { recursive: true });
+  validatePath(subPath) {
+    const fullPath = path.resolve(path.join(this.basePath, subPath));
+    const baseReal = fs.existsSync(this.basePath) ? fs.realpathSync(this.basePath) : this.basePath;
+
+    let realPath;
+    try {
+      realPath = fs.realpathSync(fullPath);
+    } catch (err) {
+      if (err.code === 'ENOENT') {
+        const parentDir = path.dirname(fullPath);
+        try {
+          const realParent = fs.realpathSync(parentDir);
+          realPath = path.join(realParent, path.basename(fullPath));
+        } catch (parentErr) {
+          realPath = fullPath;
+        }
+      } else {
+        throw err;
+      }
     }
-    this.loadCaches();
+
+    if (!realPath.startsWith(baseReal + path.sep) && realPath !== baseReal) {
+      throw new Error(`Path traversal attempt: ${subPath}`);
+    }
+
+    return fullPath;
   }
 
-  loadCaches() {
+  async init() {
+    await ensureDirectory(this.basePath);
+    await this.loadCaches();
+  }
+
+  async loadCaches() {
     if (fs.existsSync(this.basePath)) {
       const files = fs.readdirSync(this.basePath);
       for (const file of files) {
         if (file.endsWith('.json') && file.startsWith('task-run-')) {
           const id = file.replace('task-run-', '').replace('.json', '');
-          const data = JSON.parse(fs.readFileSync(path.join(this.basePath, file), 'utf-8'));
+          const data = await readJsonFile(path.join(this.basePath, file));
           this.taskRunsCache.set(id, data);
         }
         if (file.endsWith('.json') && file.startsWith('stack-run-')) {
           const id = file.replace('stack-run-', '').replace('.json', '');
-          const data = JSON.parse(fs.readFileSync(path.join(this.basePath, file), 'utf-8'));
+          const data = await readJsonFile(path.join(this.basePath, file));
           this.stackRunsCache.set(id, data);
         }
         if (file === 'keystore.json') {
-          const data = JSON.parse(fs.readFileSync(path.join(this.basePath, file), 'utf-8'));
+          const data = await readJsonFile(path.join(this.basePath, file));
           Object.entries(data).forEach(([k, v]) => this.keystoreCache.set(k, v));
         }
       }
     }
   }
 
-  persistKeystore() {
+  async persistKeystore() {
     const data = Object.fromEntries(this.keystoreCache);
-    fs.writeFileSync(
-      path.join(this.basePath, 'keystore.json'),
-      JSON.stringify(data, null, 2)
-    );
+    await writeFileAtomicJson(path.join(this.basePath, 'keystore.json'), data);
   }
 
   async createTaskRun(taskRun) {
@@ -58,10 +86,7 @@ export class FolderAdapter extends StorageAdapter {
     const record = this.crud.buildTaskRunCreate({ id, ...taskRun });
     const normalized = this.crud.normalizeTaskRunRecord(record);
     this.taskRunsCache.set(id, normalized);
-    fs.writeFileSync(
-      path.join(this.basePath, `task-run-${id}.json`),
-      JSON.stringify(normalized, null, 2)
-    );
+    await writeFileAtomicJson(path.join(this.basePath, `task-run-${id}.json`), normalized);
     return normalized;
   }
 
@@ -77,10 +102,7 @@ export class FolderAdapter extends StorageAdapter {
     const merged = this.crud.mergeUpdates(record, prepared);
     const normalized = this.crud.normalizeTaskRunRecord(merged);
     this.taskRunsCache.set(id, normalized);
-    fs.writeFileSync(
-      path.join(this.basePath, `task-run-${id}.json`),
-      JSON.stringify(normalized, null, 2)
-    );
+    await writeFileAtomicJson(path.join(this.basePath, `task-run-${id}.json`), normalized);
     return normalized;
   }
 
@@ -96,10 +118,7 @@ export class FolderAdapter extends StorageAdapter {
     const record = this.crud.buildStackRunCreate({ id, ...stackRun });
     const normalized = this.crud.normalizeStackRunRecord(record);
     this.stackRunsCache.set(id, normalized);
-    fs.writeFileSync(
-      path.join(this.basePath, `stack-run-${id}.json`),
-      JSON.stringify(normalized, null, 2)
-    );
+    await writeFileAtomicJson(path.join(this.basePath, `stack-run-${id}.json`), normalized);
     return normalized;
   }
 
@@ -115,10 +134,7 @@ export class FolderAdapter extends StorageAdapter {
     const merged = this.crud.mergeUpdates(record, prepared);
     const normalized = this.crud.normalizeStackRunRecord(merged);
     this.stackRunsCache.set(id, normalized);
-    fs.writeFileSync(
-      path.join(this.basePath, `stack-run-${id}.json`),
-      JSON.stringify(normalized, null, 2)
-    );
+    await writeFileAtomicJson(path.join(this.basePath, `stack-run-${id}.json`), normalized);
     return normalized;
   }
 
@@ -137,12 +153,10 @@ export class FolderAdapter extends StorageAdapter {
   async storeTaskFunction(taskFunction) {
     const id = taskFunction.id || randomUUID();
     const funcDir = path.join(this.basePath, 'functions', id);
-    if (!fs.existsSync(funcDir)) {
-      fs.mkdirSync(funcDir, { recursive: true });
-    }
-    fs.writeFileSync(
+    await ensureDirectory(funcDir);
+    await writeFileAtomicJson(
       path.join(funcDir, 'metadata.json'),
-      JSON.stringify({ id, name: taskFunction.name, createdAt: nowISO() }, null, 2)
+      { id, name: taskFunction.name, createdAt: nowISO() }
     );
     if (taskFunction.code) {
       fs.writeFileSync(path.join(funcDir, 'code.js'), taskFunction.code);
@@ -154,13 +168,13 @@ export class FolderAdapter extends StorageAdapter {
     const funcDir = path.join(this.basePath, 'functions', identifier);
     if (!fs.existsSync(funcDir)) return null;
     const code = fs.readFileSync(path.join(funcDir, 'code.js'), 'utf-8');
-    const metadata = JSON.parse(fs.readFileSync(path.join(funcDir, 'metadata.json'), 'utf-8'));
+    const metadata = await readJsonFile(path.join(funcDir, 'metadata.json'));
     return { ...metadata, code };
   }
 
   async setKeystore(key, value) {
     this.keystoreCache.set(key, value);
-    this.persistKeystore();
+    await this.persistKeystore();
   }
 
   async getKeystore(key) {
@@ -169,7 +183,7 @@ export class FolderAdapter extends StorageAdapter {
 
   async deleteKeystore(key) {
     this.keystoreCache.delete(key);
-    this.persistKeystore();
+    await this.persistKeystore();
   }
 
   async close() {
