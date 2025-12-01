@@ -175,5 +175,3 @@ export class FolderAdapter extends StorageAdapter {
   async close() {
   }
 }
-
-export default FolderAdapter;

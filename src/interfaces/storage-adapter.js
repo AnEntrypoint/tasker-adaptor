@@ -16,5 +16,3 @@ export class StorageAdapter {
   async deleteKeystore(_key) { throw new Error('deleteKeystore() not implemented'); }
   async close() { throw new Error('close() not implemented'); }
 }
-
-export default StorageAdapter;
