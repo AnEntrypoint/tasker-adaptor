@@ -14,6 +14,9 @@
   "files": [
     "src"
   ],
+  "scripts": {
+    "test": "node --test test/**/*.js"
+  },
   "keywords": [
     "sequential",
     "adapter",
