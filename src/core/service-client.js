@@ -53,5 +53,3 @@ export class ServiceClient {
     return result.result || result;
   }
 }
-
-export default ServiceClient;

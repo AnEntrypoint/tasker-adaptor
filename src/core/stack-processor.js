@@ -1,4 +1,4 @@
-import ServiceClient from './service-client.js';
+import { ServiceClient } from './service-client.js';
 import { loggerInstance as logger } from 'sequential-logging';
 
 /**
