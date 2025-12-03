@@ -1,5 +1,7 @@
 import { register, list, create } from './core/registry.js';
 import { FolderAdapter } from './adapters/folder-adapter.js';
+import { ensureDesktopFolder } from './folders.js';
+import logger from '@sequential/sequential-logging';
 
 let initialized = false;
 
@@ -34,7 +36,13 @@ export function getRegisteredAdapters() {
 
 export async function createAdapter(backend, config = {}) {
   await registerBuiltInAdapters();
-  return create('adapter', backend, config);
+  const adapter = create('adapter', backend, config);
+  try {
+    await ensureDesktopFolder(adapter);
+  } catch (e) {
+    logger.warn('Failed to ensure desktop folder:', e);
+  }
+  return adapter;
 }
 
 export async function withAdapter(backend, config, fn) {

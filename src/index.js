@@ -7,3 +7,4 @@ export { createAdapter, registerAdapter, getRegisteredAdapters, withAdapter } fr
 export { createRunner, registerRunner, getRegisteredRunners } from './runner-factory.js';
 export { FolderAdapter } from './adapters/folder-adapter.js';
 export { register, get, list, has, create, loadPlugins, registries } from './core/registry.js';
+export { SYSTEM_FOLDERS, ensureDesktopFolder, getDesktopItems, moveToDesktop, deleteFromDesktop } from './folders.js';

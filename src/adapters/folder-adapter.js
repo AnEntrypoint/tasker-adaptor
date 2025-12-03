@@ -1,9 +1,11 @@
 import fs from 'fs';
 import path from 'path';
 import { randomUUID } from 'crypto';
+import { validatePath } from '@sequential/param-validation';
 import { StorageAdapter } from '../interfaces/storage-adapter.js';
 import { CRUDPatterns, Serializer } from '@sequential/sequential-storage-utils';
 import { nowISO } from '@sequential/sequential-utils/timestamps';
+import { nowISO, createTimestamps, updateTimestamp } from '@sequential/timestamp-utilities';
 import {
   readJsonFile,
   writeFileAtomicJson,
@@ -22,31 +24,14 @@ export class FolderAdapter extends StorageAdapter {
   }
 
   validatePath(subPath) {
-    const fullPath = path.resolve(path.join(this.basePath, subPath));
-    const baseReal = fs.existsSync(this.basePath) ? fs.realpathSync(this.basePath) : this.basePath;
-
-    let realPath;
     try {
-      realPath = fs.realpathSync(fullPath);
+      return validatePath(subPath, this.basePath);
     } catch (err) {
-      if (err.code === 'ENOENT') {
-        const parentDir = path.dirname(fullPath);
-        try {
-          const realParent = fs.realpathSync(parentDir);
-          realPath = path.join(realParent, path.basename(fullPath));
-        } catch (parentErr) {
-          realPath = fullPath;
-        }
-      } else {
-        throw err;
+      if (err.code === 'FORBIDDEN') {
+        throw new Error(`Path traversal attempt: ${subPath}`);
       }
+      throw err;
     }
-
-    if (!realPath.startsWith(baseReal + path.sep) && realPath !== baseReal) {
-      throw new Error(`Path traversal attempt: ${subPath}`);
-    }
-
-    return fullPath;
   }
 
   async init() {
