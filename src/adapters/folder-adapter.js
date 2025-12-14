@@ -1,16 +1,16 @@
 import fs from 'fs';
 import path from 'path';
 import { randomUUID } from 'crypto';
-import { validatePath } from '@sequential/param-validation';
+import { validatePath } from '@sequentialos/param-validation';
 import { StorageAdapter } from '../interfaces/storage-adapter.js';
-import { CRUDPatterns, Serializer } from '@sequential/sequential-storage-utils';
-import { nowISO } from '@sequential/sequential-utils/timestamps';
-import { nowISO, createTimestamps, updateTimestamp } from '@sequential/timestamp-utilities';
+import { CRUDPatterns, Serializer } from '@sequentialos/sequential-storage-utils';
+import { nowISO } from '@sequentialos/sequential-utils/timestamps';
+import { nowISO, createTimestamps, updateTimestamp } from '@sequentialos/timestamp-utilities';
 import {
   readJsonFile,
   writeFileAtomicJson,
   ensureDirectory
-} from '@sequential/file-operations';
+} from '@sequentialos/file-operations';
 
 export class FolderAdapter extends StorageAdapter {
   constructor(basePath = './tasks') {

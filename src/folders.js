@@ -1,4 +1,4 @@
-import logger from '@sequential/sequential-logging';
+import logger from '@sequentialos/sequential-logging';
 export const SYSTEM_FOLDERS = {
   root: '/',
   desktop: '/Desktop',

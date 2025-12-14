@@ -1,7 +1,7 @@
 import { register, list, create } from './core/registry.js';
 import { FolderAdapter } from './adapters/folder-adapter.js';
 import { ensureDesktopFolder } from './folders.js';
-import logger from '@sequential/sequential-logging';
+import logger from '@sequentialos/sequential-logging';
 
 let initialized = false;
 
